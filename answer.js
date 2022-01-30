@@ -1,0 +1,16 @@
+answer = [
+    {suit: 0, number: 3},
+    {suit: 0, number: 4},
+    {suit: 0, number: 5},
+    {suit: 2, number: 1},
+    {suit: 2, number: 2},
+    {suit: 2, number: 2},
+    {suit: 2, number: 3},
+    {suit: 2, number: 3},
+    {suit: 2, number: 4},
+    {suit: 2, number: 9},
+    {suit: 2, number: 9},
+    {suit: 3, number: 3},
+    {suit: 3, number: 3},
+    {suit: 3, number: 3},
+];

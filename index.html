@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Mahjordle</title>
+        <link rel="stylesheet" href="static/pure.min.css">
+        <link rel="stylesheet" href="static/main.css">
+        <script src="static/vue.min.js"></script>
+    </head>
+    <body>
+        <div id="app">
+            <div :style="{...positionStyle(30, 30)}">
+                <div :style="{position: 'relative', ...sizeStyle(44*guesses.length, 30*14)}">
+                    <div v-for="(guess,guessIndex) in guesses" :key="guessIndex" :style="{...positionStyle(44*guessIndex, 0)}">
+                        <div v-for="(tile,tileIndex) in guess" :key="tileIndex" :style="{...positionStyle(0, 30*tileIndex)}">
+                            <div :style="{zIndex: -1, ...spriteStyle(44, 30, spriteMap.tiles[tile.suit][tile.number])}"></div>
+                            <div :style="{backgroundColor: tile.result?'rgba(106,170,100,0.5)':'rgba(120,124,126,0.5)', ...sizeStyle(44, 30)}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div :style="{position: 'relative', backgroundColor: 'rgb(120,124,126)', ...sizeStyle(44, 30*14)}">
+                    <div v-for="(tile,tileIndex) in editor" :key="tileIndex" :style="{...positionStyle(0, 30*tileIndex)}">
+                        <div :style="{...spriteStyle(44, 30, spriteMap.tiles[tile.suit][tile.number])}"></div>
+                    </div>
+                </div>
+                <div :style="{position: 'relative', ...sizeStyle(30, 30*14)}"></div>
+                <div :style="{position: 'relative', ...sizeStyle(44*4, 30*14)}">
+                    <div v-for="(_,suit) in 3" :key="suit" :style="{...positionStyle(44*suit, 0)}">
+                        <div v-for="number in 9" :key="number" :style="{cursor: 'pointer', ...psStyle(0, 30*number, 44, 30)}" @click="insert(suit, number)">
+                            <div :style="{...spriteStyle(44, 30, spriteMap.tiles[suit][number])}"></div>
+                        </div>
+                    </div>
+                    <div :style="{cursor: 'pointer', ...psStyle(44*3, 30, 44, 30)}" @click="enter()">
+                        <div :style="{...spriteStyle(44, 30, spriteMap.enter)}"></div>
+                    </div>
+                    <div :style="{...positionStyle(44*3, 30)}">
+                        <div v-for="number in 7" :key="number" :style="{cursor: 'pointer', ...psStyle(0, 30*number, 44, 30)}" @click="insert(3, number)">
+                            <div :style="{...spriteStyle(44, 30, spriteMap.tiles[3][number])}"></div>
+                        </div>
+                    </div>
+                    <div :style="{cursor: 'pointer', ...psStyle(44*3, 30*9, 44, 30)}" @click="backspace()">
+                        <div :style="{...spriteStyle(44, 30, spriteMap.backspace)}"></div>
+                    </div>
+                </div>
+                <div :style="{position: 'relative', ...sizeStyle(30, 30*14)}"></div>
+                <div>
+                    说明：答案为 14 张牌构成的日麻和牌牌型，没有副露，可以仅有立直役。每次猜的牌也要如此。绿色表示答案中有的牌，灰色表示答案中没有的牌，位置不重要。
+                </div>
+            </div>
+        </div>
+        <script src="answer.js"></script>
+        <script>
+            const spritesUrl = 'static/sprites.png';
+            const spritesHeight = 1100;
+            const spritesWidth = 1350;
+            const spriteMap = {
+                tiles: Array(4).fill(0).map((_, i) => Array(10).fill(0).map((_, j) => [i*220, j*150-150, 220, 150])),
+                enter: [660, 1050, 220, 150],
+                backspace: [660, 1200, 220, 150],
+            };
+            app = new Vue({
+                el: "#app",
+                data: {
+                    answer,
+                    guesses: [],
+                    editor: [],
+                },
+                computed: {
+                },
+                methods: {
+                    positionStyle(top, left) {
+                        return {
+                            position: 'absolute',
+                            top: top+'px',
+                            left: left+'px',
+                        };
+                    },
+                    sizeStyle(height, width) {
+                        return {
+                            height: height+'px',
+                            width: width+'px',
+                        };
+                    },
+                    psStyle(top, left, height, width) {
+                        return {
+                            ...this.positionStyle(top, left),
+                            ...this.sizeStyle(height, width),
+                        };
+                    },
+                    borderStyle() {
+                        return {
+                            border: '1px solid #000',
+                        };
+                    },
+                    spriteStyle(tHeight, tWidth, [sTop, sLeft, sHeight, sWidth]) {
+                        const hScale = tWidth / sWidth;
+                        const vScale = tHeight / sHeight;
+                        return {
+                            ...this.positionStyle(0, 0),
+                            ...this.sizeStyle(tHeight, tWidth),
+                            background: `url('${spritesUrl}') ${-sLeft*hScale}px ${-sTop*vScale}px`,
+                            backgroundSize: `${spritesWidth*hScale}px ${spritesHeight*vScale}px`,
+                        };
+                    },
+                    insert(suit, number) {
+                        if (this.editor.length >= 14) {
+                            alert('只能填入 14 张牌');
+                            return;
+                        }
+                        if (this.editor.filter(i => i.suit === suit && i.number === number).length >= 4) {
+                            alert('同种牌最多使用 4 张');
+                            return;
+                        }
+                        this.editor.push({suit, number});
+                    },
+                    backspace() {
+                        this.editor.pop();
+                    },
+                    enter() {
+                        if (this.editor.length !== 14) {
+                            alert('请填满 14 张牌');
+                            return;
+                        }
+                        if (!this.editorCheck()) {
+                            alert('必须猜可以和牌的牌型');
+                            return;
+                        }
+                        this.editor.forEach(i => {
+                            i.result = 0;
+                        });
+                        this.answer.forEach(({suit, number}) => {
+                            const r = this.editor.find(i => i.suit === suit && i.number === number && i.result === 0);
+                            if (r) {
+                                r.result = 1;
+                            }
+                        });
+                        this.guesses.push(this.editor);
+                        this.editor = [];
+                    },
+                    editorCheck() {
+                        function checkBasic(sorted, pool) {
+                            if (sorted.length == 14) {
+                                return true;
+                            }
+                            for (let i = 0; i < 14; i++) {
+                                if (pool[i].used) {
+                                    continue;
+                                }
+                                pool[i].used = true;
+                                sorted.push(pool[i]);
+                                if (sorted.length === 2 || sorted.length === 5 || sorted.length === 8 || sorted.length === 11) {
+                                    if (sorted[sorted.length-2].suit !== sorted[sorted.length-1].suit) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                    const diff = sorted[sorted.length-1].number - sorted[sorted.length-2].number;
+                                    if (sorted[sorted.length-1].suit === 3 && diff !== 0) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                    if (sorted[sorted.length-1].suit !== 3 && diff !== 0 && diff !== 1) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                }
+                                if (sorted.length === 3 || sorted.length === 6 || sorted.length === 9 || sorted.length === 12) {
+                                    if (sorted[sorted.length-2].suit !== sorted[sorted.length-1].suit) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                    const diff1 = sorted[sorted.length-2].number - sorted[sorted.length-3].number;
+                                    const diff2 = sorted[sorted.length-1].number - sorted[sorted.length-2].number;
+                                    if (sorted[sorted.length-1].suit === 3 && diff2 !== 0) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                    if (sorted[sorted.length-1].suit !== 3 && diff1 !== diff2) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                }
+                                if (sorted.length === 14) {
+                                    if (sorted[sorted.length-2].suit !== sorted[sorted.length-1].suit) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                    if (sorted[sorted.length-2].number !== sorted[sorted.length-1].number) {
+                                        sorted.pop();
+                                        pool[i].used = false;
+                                        continue;
+                                    }
+                                }
+                                if (checkBasic(sorted, pool)) {
+                                    return true;
+                                }
+                                sorted.pop();
+                                pool[i].used = false;
+                            }
+                            return false;
+                        }
+                        if (checkBasic([], this.editor)) {
+                            return true;
+                        }
+                        if (this.editor.map(i => this.editor.filter(j => i.suit === j.suit && i.number === j.number).length).every(i => i === 2)) {
+                            return true;
+                        }
+                        if ([
+                            {suit: 0, number: 1},
+                            {suit: 0, number: 9},
+                            {suit: 1, number: 1},
+                            {suit: 1, number: 9},
+                            {suit: 2, number: 1},
+                            {suit: 2, number: 9},
+                            {suit: 3, number: 1},
+                            {suit: 3, number: 2},
+                            {suit: 3, number: 3},
+                            {suit: 3, number: 4},
+                            {suit: 3, number: 5},
+                            {suit: 3, number: 6},
+                            {suit: 3, number: 7},
+                        ].map(i => this.editor.filter(j => i.suit === j.suit && i.number === j.number).length).every(i => i >= 1)) {
+                            return true;
+                        }
+                        return false;
+                    },
+                },
+            });
+        </script>
+    </body>
+</html>
