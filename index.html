@@ -19,13 +19,13 @@
                         </div>
                     </div>
                 </div>
-                <div :style="{position: 'relative', backgroundColor: 'rgb(120,124,126)', ...sizeStyle(44, 30*14)}">
+                <div v-show="!end" :style="{position: 'relative', backgroundColor: 'rgb(120,124,126)', ...sizeStyle(44, 30*14)}">
                     <div v-for="(tile,tileIndex) in editor" :key="tileIndex" :style="{...positionStyle(0, 30*tileIndex)}">
                         <div :style="{...spriteStyle(44, 30, spriteMap.tiles[tile.suit][tile.number])}"></div>
                     </div>
                 </div>
                 <div :style="{position: 'relative', ...sizeStyle(30, 30*14)}"></div>
-                <div :style="{position: 'relative', ...sizeStyle(44*4, 30*14)}">
+                <div v-show="!end" :style="{position: 'relative', ...sizeStyle(44*4, 30*14)}">
                     <div v-for="(_,suit) in 3" :key="suit" :style="{...positionStyle(44*suit, 0)}">
                         <div v-for="number in 9" :key="number" :style="{cursor: 'pointer', ...psStyle(0, 30*number, 44, 30)}" @click="insert(suit, number)">
                             <div :style="{...spriteStyle(44, 30, spriteMap.tiles[suit][number])}"></div>
@@ -41,6 +41,11 @@
                     </div>
                     <div :style="{cursor: 'pointer', ...psStyle(44*3, 30*9, 44, 30)}" @click="backspace()">
                         <div :style="{...spriteStyle(44, 30, spriteMap.backspace)}"></div>
+                    </div>
+                </div>
+                <div v-show="end" :style="{position: 'relative', ...sizeStyle(44, 30*14)}">
+                    <div :style="{cursor: 'pointer', borderRadius: '100px', backgroundColor: 'rgb(106,170,100)', color: '#ffffff', textAlign: 'center', fontSize: '29px', ...psStyle(0, 0, 44, 30*14)}" @click="copy()">
+                        {{copied?'已复制到剪贴板':'分享'}}
                     </div>
                 </div>
                 <div :style="{position: 'relative', ...sizeStyle(30, 30*14)}"></div>
@@ -65,6 +70,8 @@
                     answer,
                     guesses: [],
                     editor: [],
+                    end: false,
+                    copied: false,
                 },
                 computed: {
                 },
@@ -127,16 +134,34 @@
                             return;
                         }
                         this.editor.forEach(i => {
-                            i.result = 0;
+                            i.result = false;
                         });
                         this.answer.forEach(({suit, number}) => {
-                            const r = this.editor.find(i => i.suit === suit && i.number === number && i.result === 0);
+                            const r = this.editor.find(i => i.suit === suit && i.number === number && !i.result);
                             if (r) {
-                                r.result = 1;
+                                r.result = true;
                             }
                         });
+                        if (this.editor.every(i => i.result)) {
+                            alert(`恭喜！${this.guesses.length+1} 次就猜对了`);
+                            this.end = true;
+                        }
                         this.guesses.push(this.editor);
                         this.editor = [];
+                    },
+                    copy() {
+                        const guesses = this.guesses.map(i => i.map(({result}) => result?'🟩':'⬜').join('')).join('\n');
+                        const text = `Mahjordle\n\n${guesses}`;
+                        const textarea = document.createElement('textarea');
+                        textarea.value = text;
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        this.copied = true;
+                        setTimeout(() => {
+                            this.copied = false;
+                        }, 1000);
                     },
                     editorCheck() {
                         function checkBasic(sorted, pool) {
